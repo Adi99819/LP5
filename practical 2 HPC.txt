@@ -1,0 +1,248 @@
+#include <iostream>
+#include <cstdlib>
+#include <ctime>
+#include <omp.h>
+
+using namespace std;
+
+// 🔹 Sequential Bubble Sort
+void bubbleSort(int arr[], int n) {
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (arr[j] > arr[j + 1])
+                swap(arr[j], arr[j + 1]);
+        }
+    }
+}
+
+// 🔹 Correct Parallel Bubble Sort (Odd-Even Sort)
+void parallelBubbleSort(int arr[], int n) {
+    for (int i = 0; i < n; i++) {
+        if (i % 2 == 0) {
+            #pragma omp parallel for
+            for (int j = 0; j < n - 1; j += 2) {
+                if (arr[j] > arr[j + 1])
+                    swap(arr[j], arr[j + 1]);
+            }
+        } else {
+            #pragma omp parallel for
+            for (int j = 1; j < n - 1; j += 2) {
+                if (arr[j] > arr[j + 1])
+                    swap(arr[j], arr[j + 1]);
+            }
+        }
+    }
+}
+
+// 🔹 Merge Function
+void merge(int arr[], int l, int m, int r) {
+    int i, j, k;
+    int n1 = m - l + 1;
+    int n2 = r - m;
+
+    int *L = new int[n1];
+    int *R = new int[n2];
+
+    for (i = 0; i < n1; i++)
+        L[i] = arr[l + i];
+    for (j = 0; j < n2; j++)
+        R[j] = arr[m + 1 + j];
+
+    i = 0; j = 0; k = l;
+
+    while (i < n1 && j < n2) {
+        if (L[i] <= R[j])
+            arr[k++] = L[i++];
+        else
+            arr[k++] = R[j++];
+    }
+
+    while (i < n1)
+        arr[k++] = L[i++];
+
+    while (j < n2)
+        arr[k++] = R[j++];
+
+    delete[] L;
+    delete[] R;
+}
+
+// 🔹 Sequential Merge Sort
+void mergeSort(int arr[], int l, int r) {
+    if (l < r) {
+        int m = (l + r) / 2;
+        mergeSort(arr, l, m);
+        mergeSort(arr, m + 1, r);
+        merge(arr, l, m, r);
+    }
+}
+
+// 🔹 Parallel Merge Sort
+void parallelMergeSort(int arr[], int l, int r) {
+    if (l < r) {
+        int m = (l + r) / 2;
+
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            parallelMergeSort(arr, l, m);
+
+            #pragma omp section
+            parallelMergeSort(arr, m + 1, r);
+        }
+
+        merge(arr, l, m, r);
+    }
+}
+
+// 🔹 Copy Array
+void copyArray(int src[], int dest[], int n) {
+    for (int i = 0; i < n; i++)
+        dest[i] = src[i];
+}
+
+// 🔹 Main
+int main() {
+    int n;
+    cout << "Enter size of array: ";
+    cin >> n;
+
+    int *arr = new int[n];
+    int *temp = new int[n];
+
+    srand(time(0));
+    for (int i = 0; i < n; i++)
+        arr[i] = rand() % 100;
+
+    double start, end;
+
+    // 🔹 Sequential Bubble Sort
+    copyArray(arr, temp, n);
+    start = omp_get_wtime();
+    bubbleSort(temp, n);
+    end = omp_get_wtime();
+    cout << "Sequential Bubble Sort Time: " << (end - start) << " sec\n";
+
+    // 🔹 Parallel Bubble Sort
+    copyArray(arr, temp, n);
+    start = omp_get_wtime();
+    parallelBubbleSort(temp, n);
+    end = omp_get_wtime();
+    cout << "Parallel Bubble Sort Time: " << (end - start) << " sec\n";
+
+    // 🔹 Sequential Merge Sort
+    copyArray(arr, temp, n);
+    start = omp_get_wtime();
+    mergeSort(temp, 0, n - 1);
+    end = omp_get_wtime();
+    cout << "Sequential Merge Sort Time: " << (end - start) << " sec\n";
+
+    // 🔹 Parallel Merge Sort
+    copyArray(arr, temp, n);
+    start = omp_get_wtime();
+    parallelMergeSort(temp, 0, n - 1);
+    end = omp_get_wtime();
+    cout << "Parallel Merge Sort Time: " << (end - start) << " sec\n";
+
+    delete[] arr;
+    delete[] temp;
+
+    return 0;
+}
+
+
+
+
+
+
+This error is very common 👍 — and it’s **not a code problem**, it’s a **compilation issue**.
+
+---
+
+# ❌ Why You’re Getting This Error
+
+```
+undefined reference to `omp_get_wtime'
+```
+
+👉 This means:
+
+* Your compiler **recognizes OpenMP syntax (`#pragma omp`)**
+* BUT it is **not linking the OpenMP library**
+
+---
+
+# ✅ Solution (Very Important)
+
+You must compile with **OpenMP flag**
+
+### 🔹 Correct Command:
+
+```bash
+g++ -fopenmp main.cpp -o program
+```
+
+Then run:
+
+```bash
+./program
+```
+
+---
+
+# ⚠️ Why This Happens
+
+* `omp_get_wtime()` is part of **OpenMP runtime library**
+* Without `-fopenmp`, the linker cannot find it
+
+---
+
+# 🔹 If You’re Using Online Compiler / Replit / Nix
+
+Sometimes OpenMP is **disabled by default**
+
+### 👉 Try:
+
+* Add flag: `-fopenmp`
+* Or enable OpenMP in settings
+
+---
+
+# 🔹 Alternative (If OpenMP Not Supported)
+
+If your environment doesn’t support OpenMP, replace:
+
+```cpp
+omp_get_wtime()
+```
+
+with:
+
+```cpp
+clock() / CLOCKS_PER_SEC
+```
+
+But ⚠️:
+
+* You **lose parallel timing accuracy**
+* Only use this as fallback
+
+---
+
+# 🔹 Quick Checklist ✅
+
+✔ Use `#include <omp.h>`
+✔ Compile with `-fopenmp`
+✔ Use supported compiler (g++ / clang with OpenMP)
+
+---
+
+# 🔹 One-Line Viva Answer
+
+> The error occurs because the OpenMP library is not linked during compilation, so we must use the `-fopenmp` flag.
+
+---
+
+If you want:
+👉 I can help you **run this on your specific platform (VS Code / Replit / Linux / Windows)**
+👉 Or give **expected output + performance comparison explanation**
